@@ -38,12 +38,24 @@ export default {
       pairsMatched: 0,
       pairVisibleInMiliseconds: 1500,  
       images: [],
-      picsimApiUrl: 'https://picsum.photos/200',
+      picsumApiUrl: 'https://picsum.photos/200',
       turns: 0,
     }
   },
   mounted() {
     this.getImages()
+
+    this.$on('onCardOpen', function(card) {
+        this.openCard(card)
+    });
+  },
+  watch: {
+    images: function(val) {
+      if (val.length === this.pairs) {
+        this.generateCards()
+        this.loading = false
+      }
+    }
   },
   methods: {
     getImages: async function() {
@@ -54,6 +66,14 @@ export default {
           this.images.push(response.request.responseURL)
         }
       }
+    },
+    cardsMatch: function(cards) {
+        return cards[0].pair === cards[1].pair
+    },
+    closeCards: function() {
+        this.deck.forEach((card) => {
+            card.open = false
+        })
     },
     generateCards: function() {
       let cards = []
@@ -73,22 +93,75 @@ export default {
         }
       })
       this.deck = this.shuffleDeck(cards)
+    },
+    openCard: function(card) {
+        if (this.openedCards.length === 2) {
+            return
+        }
+
+        this.deck.forEach((element, index) => {
+            if (element.number === card.number) {
+                this.deck[index].open = true
+                return
+            }
+        })
+
+        this.openedCards.push(card)
+
+        if (this.openedCards.length === 2) {
+            setTimeout(() => {
+            this.handlePossibleMatch(this.openedCards)
+            }, this.pairVisibleInMiliseconds)
+        }
+    },
+    shuffleDeck: function(cards) {
+        return cards
+            .map(a => [Math.random(), a])
+            .sort((a, b) => a[0] - b[0])
+            .map(a => a[1])
+    },
+    resetGame: function() {
+        this.generateCards()
+        this.turns = 0
+        this.pairsMatched = 0
+    },
+    handlePossibleMatch: function(openedCards) {
+        if (this.cardsMatch(openedCards)) {
+            const openedCardNumbers = [openedCards[0].number, openedCards[1].number]
+
+            this.deck.forEach((element, index) => {
+                if (openedCardNumbers.includes(element.number)) {
+                    this.deck[index].open = false
+                    this.deck[index].matched = true
+                }
+            })
+
+            this.pairsMatched += 1
+        } else {
+            this.closeCards()
+        }
+        this.turns += 1
+        this.openedCards = []
     }
     
-  },
-  watch: {
-    images: function(val) {
-      if (val.length === this.pairs) {
-        this.genrateCards()
-        this.loading = false
-      }
-    }
   }
 }
 </script>
 
 <style scoped>
- * {
-     box-sizing: border-box;
- }
+  * {
+    box-sizing: border-box;
+  }
+  .spinner {
+    width: 100%;
+    text-align: center;
+  }
+  .spinner span {
+    font-size: 24px;
+  }
+  .statistics span {
+    display: inline-block;
+    font-size: 24px;
+    margin: 25px;
+  }
 </style>
